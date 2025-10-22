@@ -304,6 +304,9 @@
       "@activepieces/piece-copy-ai": [
         "packages/pieces/community/copy-ai/src/index.ts"
       ],
+      "@activepieces/piece-couchbase": [
+        "packages/pieces/community/couchbase/src/index.ts"
+      ],
       "@activepieces/piece-crisp": [
         "packages/pieces/community/crisp/src/index.ts"
       ],
