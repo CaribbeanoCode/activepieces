@@ -63,6 +63,7 @@ import { UserInvitationEntity } from '../user-invitations/user-invitation.entity
 import { WorkerMachineEntity } from '../workers/machine/machine-entity'
 import { createPostgresDataSource } from './postgres-connection'
 import { createSqlLiteDataSource } from './sqlite-connection'
+import { OutgoingWebhookEntity } from '../ee/outging-webhooks/outgoing-webhooks.entity'
 
 const databaseType = system.get(AppSystemProp.DB_TYPE)
 
@@ -105,6 +106,7 @@ function getEntities(): EntitySchema<unknown>[] {
         McpRunEntity,
         AIUsageEntity,
         TriggerSourceEntity,
+        OutgoingWebhookEntity
     ]
 
     switch (edition) {
@@ -128,7 +130,7 @@ function getEntities(): EntitySchema<unknown>[] {
                 ConnectionKeyEntity,
                 AppCredentialEntity,
                 PlatformPlanEntity,
-           
+
             )
             break
         case ApEdition.COMMUNITY:
