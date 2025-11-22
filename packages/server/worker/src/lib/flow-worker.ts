@@ -7,10 +7,11 @@ import { workerCache } from './cache/worker-cache'
 import { engineRunner } from './compute'
 import { engineRunnerSocket } from './compute/engine-runner-socket'
 import { jobQueueWorker } from './consume/job-queue-worker'
+import { workerJobRateLimiter } from './consume/worker-job-rate-limiter'
 import { workerMachine } from './utils/machine'
 import { workerDistributedLock, workerDistributedStore, workerRedisConnections } from './utils/worker-redis'
 
-export const runsMetadataQueue = runsMetadataQueueFactory({ 
+export const runsMetadataQueue = runsMetadataQueueFactory({
     createRedisConnection: workerRedisConnections.create,
     distributedStore: workerDistributedStore,
 })
@@ -27,8 +28,10 @@ export const flowWorker = (log: FastifyBaseLogger) => ({
                 const response = await appSocket(log).emitWithAck<WorkerSettingsResponse>(WebsocketServerEvent.FETCH_WORKER_SETTINGS, request)
                 await workerMachine.init(response, token, log)
                 await registryPieceManager(log).warmup()
-                await jobQueueWorker(log).start(token)
                 await initRunsMetadataQueue(log)
+                await workerJobRateLimiter(log).init()
+                await jobQueueWorker(log).start(token)
+
                 await markAsHealthy()
                 await registryPieceManager(log).distributedWarmup()
             },
@@ -45,11 +48,12 @@ export const flowWorker = (log: FastifyBaseLogger) => ({
 
         await workerRedisConnections.destroy()
         await workerDistributedLock(log).destroy()
-        
+
         if (workerMachine.hasSettings()) {
             await engineRunner(log).shutdownAllWorkers()
         }
         await jobQueueWorker(log).close()
+        await workerJobRateLimiter(log).close()
     },
 })
 

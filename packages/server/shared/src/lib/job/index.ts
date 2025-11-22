@@ -15,6 +15,7 @@ export enum JobStatus {
 
 export enum QueueName {
     WORKER_JOBS = 'workerJobs',
+    THROTTLED_JOBS = 'throttledJobs',
     RUNS_METADATA = 'runsMetadata',
 }
 

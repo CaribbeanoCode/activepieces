@@ -4,10 +4,8 @@ import {
     ConsumeJobResponseStatus,
     ExecutionType,
     isNil,
-    JOB_PRIORITY,
     JobData,
     LATEST_JOB_DATA_SCHEMA_VERSION,
-    RATE_LIMIT_PRIORITY,
     WorkerJobType,
 } from '@activepieces/shared'
 import { DelayedError, Job, Worker } from 'bullmq'
@@ -22,6 +20,7 @@ import { workerJobRateLimiter } from './worker-job-rate-limiter'
 
 let worker: Worker<JobData>
 
+
 export const jobQueueWorker = (log: FastifyBaseLogger) => ({
     async start(workerToken: string): Promise<void> {
         if (!isNil(worker)) {
@@ -29,7 +28,7 @@ export const jobQueueWorker = (log: FastifyBaseLogger) => ({
         }
         const isOtpEnabled = workerMachine.getSettings().OTEL_ENABLED
         const queueName = getWorkerQueueName()
-        worker = new Worker<JobData>(queueName, async (job, token) => {
+        worker = new Worker<JobData>(queueName, async (job) => {
             try {
                 const jobId = job.id
                 const { shouldSkip } = await preHandler(workerToken, job)
@@ -44,24 +43,14 @@ export const jobQueueWorker = (log: FastifyBaseLogger) => ({
                 assertNotNullOrUndefined(jobId, 'jobId')
                 const { shouldRateLimit } = await workerJobRateLimiter(log).shouldBeLimited(jobId, job.data)
                 if (shouldRateLimit) {
-                    const baseDelay = Math.min(600, 20 * Math.pow(2, job.attemptsStarted))
-                    const randomFactor = 0.6 + Math.random() * 0.4
-                    const delayInSeconds = Math.round(baseDelay * randomFactor)
-                    await job.moveToDelayed(
-                        dayjs().add(delayInSeconds, 'seconds').valueOf(),
-                        token,
-                    )
+                    await workerJobRateLimiter(log).throttleJob(jobId, job.data)
+
                     log.info({
-                        message: '[jobQueueWorker] Job is throttled and will be retried',
+                        message: '[jobQueueWorker] Job is throttled and moved to throttled queue',
                         jobId,
-                        delayInSeconds,
                     })
-                    await job.changePriority({
-                        priority: JOB_PRIORITY[RATE_LIMIT_PRIORITY],
-                    })
-                    throw new DelayedError(
-                        'Thie job is rate limited and will be retried',
-                    )
+
+                    return
                 }
                 const response = await jobConsmer(log).consumeJob(job)
                 log.info({
